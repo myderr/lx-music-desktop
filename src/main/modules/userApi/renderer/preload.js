@@ -66,7 +66,7 @@ const verifyLyricInfo = (info) => {
 }
 
 const handleRequest = (context, { requestKey, data }) => {
-  console.log("收到数据：", data)
+  console.log('收到数据：', data)
   if (!events.request) return sendMessage(USER_API_RENDERER_EVENT_NAME.response, { requestKey }, false, 'Request event is not defined')
   try {
     events.request.call(context, { source: data.source, action: data.action, info: data.info }).then(response => {
@@ -85,7 +85,7 @@ const handleRequest = (context, { requestKey, data }) => {
             },
           }
           try {
-            console.log("执行成功：" + response)
+            console.log('执行成功：' + response)
             let newData = JSON.parse(JSON.stringify(data))
             newData.info.url = response
             needle.request('post', 'http://localhost:5054/api/Music/Upload', {
@@ -99,7 +99,7 @@ const handleRequest = (context, { requestKey, data }) => {
               console.log(err, resp, body)
             })
           } catch (err) {
-            console.log("错误：", err);
+            console.log('错误：', err)
           }
           break
         case 'lyric':
