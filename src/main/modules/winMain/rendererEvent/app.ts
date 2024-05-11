@@ -25,7 +25,26 @@ import {
 import { quitApp } from '@main/app'
 import { getAllThemes, removeTheme, saveTheme, setPowerSaveBlocker } from '@main/utils'
 import { openDirInExplorer } from '@common/utils/electron'
-import { ListDetailInfo } from '@/renderer/store/songList/state'
+// import { ListDetailInfo } from '@/renderer/store/songList/state'
+
+interface ListDetailInfo {
+  list: LX.Music.MusicInfoOnline[]
+  source: LX.OnlineSource
+  desc: string | null
+  total: number
+  page: number
+  limit: number
+  key: string | null
+  id: string
+  info: {
+    name?: string
+    img?: string
+    desc?: string
+    author?: string
+    play_count?: string
+  }
+  noItemLabel: string
+}
 
 export default () => {
   // 设置应用名称
@@ -66,13 +85,13 @@ export default () => {
     closeWindow()
   })
   // 全屏
-  mainHandle<boolean, boolean>(WIN_MAIN_RENDERER_EVENT_NAME.fullscreen, async ({ params: isFullscreen }) => {
+  mainHandle<boolean, boolean>(WIN_MAIN_RENDERER_EVENT_NAME.fullscreen, async({ params: isFullscreen }) => {
     global.lx.event_app.main_window_fullscreen(isFullscreen)
     return setFullScreen(isFullscreen)
   })
 
   // 选择目录
-  mainHandle<Electron.OpenDialogOptions, Electron.OpenDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_select_dialog, async ({ params: options }) => {
+  mainHandle<Electron.OpenDialogOptions, Electron.OpenDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_select_dialog, async({ params: options }) => {
     return showSelectDialog(options)
   })
   // 显示弹窗信息
@@ -80,20 +99,20 @@ export default () => {
     showDialog(params)
   })
   // 显示保存弹窗
-  mainHandle<Electron.SaveDialogOptions, Electron.SaveDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_save_dialog, async ({ params }) => {
+  mainHandle<Electron.SaveDialogOptions, Electron.SaveDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_save_dialog, async({ params }) => {
     return showSaveDialog(params)
   })
   // 在资源管理器中定位文件
-  mainOn<string>(WIN_MAIN_RENDERER_EVENT_NAME.open_dir_in_explorer, async ({ params }) => {
+  mainOn<string>(WIN_MAIN_RENDERER_EVENT_NAME.open_dir_in_explorer, async({ params }) => {
     return openDirInExplorer(params)
   })
 
 
-  mainHandle(WIN_MAIN_RENDERER_EVENT_NAME.clear_cache, async () => {
+  mainHandle(WIN_MAIN_RENDERER_EVENT_NAME.clear_cache, async() => {
     await clearCache()
   })
 
-  mainHandle<number>(WIN_MAIN_RENDERER_EVENT_NAME.get_cache_size, async () => {
+  mainHandle<number>(WIN_MAIN_RENDERER_EVENT_NAME.get_cache_size, async() => {
     return getCacheSize()
   })
 
@@ -124,13 +143,13 @@ export default () => {
     global.lx.event_app.main_window_inited()
   })
 
-  mainHandle<{ themes: LX.Theme[], userThemes: LX.Theme[] }>(WIN_MAIN_RENDERER_EVENT_NAME.get_themes, async () => {
+  mainHandle<{ themes: LX.Theme[], userThemes: LX.Theme[] }>(WIN_MAIN_RENDERER_EVENT_NAME.get_themes, async() => {
     return getAllThemes()
   })
-  mainHandle<LX.Theme>(WIN_MAIN_RENDERER_EVENT_NAME.save_theme, async ({ params: theme }) => {
+  mainHandle<LX.Theme>(WIN_MAIN_RENDERER_EVENT_NAME.save_theme, async({ params: theme }) => {
     saveTheme(theme)
   })
-  mainHandle<string>(WIN_MAIN_RENDERER_EVENT_NAME.remove_theme, async ({ params: id }) => {
+  mainHandle<string>(WIN_MAIN_RENDERER_EVENT_NAME.remove_theme, async({ params: id }) => {
     removeTheme(id)
   })
 }
@@ -148,13 +167,13 @@ export const sendConfigChange = (setting: Partial<LX.AppSetting>) => {
 
 interface ListDetailPara { id: string, source: LX.OnlineSource, page: number, isRefresh: boolean }
 
-export const getListDetail = (input: ListDetailPara): Promise<ListDetailInfo> => {
+export const getListDetail = async(input: ListDetailPara): Promise<ListDetailInfo> => {
   return new Promise((resolve, reject) => {
     mainOnce<ListDetailInfo>(WIN_MAIN_RENDERER_EVENT_NAME.send_list_detail, ({ params: data }) => {
       resolve(data)
     })
     sendEvent<ListDetailPara>(WIN_MAIN_RENDERER_EVENT_NAME.get_list_detail, input)
-  });
+  })
 }
 
 interface MusicUrlPara {

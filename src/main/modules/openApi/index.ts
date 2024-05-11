@@ -3,10 +3,10 @@ import querystring from 'node:querystring'
 import type { Socket } from 'node:net'
 import { getAddress } from '@common/utils/nodejs'
 // import { getMusicUrl } from '@/renderer/core/music/index'
-import { deduplicationList, toNewMusicInfo } from '@../../renderer/utils'
-import { markRawList } from '@common/utils/vueTools'
+// import { deduplicationList, toNewMusicInfo } from '@../../renderer/utils'
+// import { markRawList } from '@common/utils/vueTools'
 import { getListDetail, getOnlineMusicUrl } from '../winMain/rendererEvent'
-import { sendRequest } from '@main/modules/userApi'
+// import { sendRequest } from '@main/modules/userApi'
 
 let status: LX.OpenAPI.Status = {
   status: false,
@@ -14,9 +14,9 @@ let status: LX.OpenAPI.Status = {
   address: '',
 }
 
-type MusicInfoOnline = LX.Music.MusicInfoOnline & {
-  url: string
-}
+// type MusicInfoOnline = LX.Music.MusicInfoOnline & {
+//   url: string
+// }
 
 type SubscribeKeys = keyof LX.Player.Status
 
@@ -51,16 +51,16 @@ const handleSubscribePlayerStatus = (req: http.IncomingMessage, res: http.Server
   }
 }
 
-function waitSeconds(seconds: number): Promise<void> {
+async function waitSeconds(seconds: number): Promise<void> {
   return new Promise<void>((resolve) => {
     setTimeout(() => {
-      resolve();
-    }, seconds * 1000);
-  });
+      resolve()
+    }, seconds * 1000)
+  })
 }
 
-const handleStartServer = async (port: number, ip: string) => new Promise<void>((resolve, reject) => {
-  httpServer = http.createServer(async (req, res): Promise<void> => {
+const handleStartServer = async(port: number, ip: string) => new Promise<void>((resolve, reject) => {
+  httpServer = http.createServer(async(req, res): Promise<void> => {
     const [endUrl, query] = `/${req.url?.split('/').at(-1) ?? ''}`.split('?')
     let code
     let msg
@@ -89,15 +89,15 @@ const handleStartServer = async (port: number, ip: string) => new Promise<void>(
         let ret = null
         if (search != null) {
           ret = await getListDetail({ id: search, source, page: 1, isRefresh: true })
-          let list = ret.list;
-          if (list != null && list.length > 0)
+          let list = ret.list
+          if (list != null && list.length > 0) {
             for (let i = 0; i < list.length; i++) {
               const item = list[i]
               try {
                 getOnlineMusicUrl({
                   musicInfo: item,
                   isRefresh: true,
-                  allowToggleSource: false
+                  allowToggleSource: false,
                 })
                 await waitSeconds(10)
                 // const requestKey = `request__${Math.random().toString().substring(2)}`
@@ -113,9 +113,9 @@ const handleStartServer = async (port: number, ip: string) => new Promise<void>(
                 //     },
                 //   }
                 // })
-              }
-              catch (ex) { }
+              } catch (ex) { }
             }
+          }
         }
         // musicSdk.kw.songList.
         msg = JSON.stringify({
@@ -171,7 +171,7 @@ const handleStartServer = async (port: number, ip: string) => new Promise<void>(
   httpServer.listen(port, ip)
 })
 
-const handleStopServer = async () => new Promise<void>((resolve, reject) => {
+const handleStopServer = async() => new Promise<void>((resolve, reject) => {
   if (!httpServer) return
   httpServer.close((err) => {
     if (err) {
@@ -196,7 +196,7 @@ const sendStatus = (status: Partial<LX.Player.Status>) => {
     }
   }
 }
-export const stopServer = async () => {
+export const stopServer = async() => {
   global.lx.event_app.off('player_status', sendStatus)
   if (!status.status) {
     status.status = false
@@ -214,7 +214,7 @@ export const stopServer = async () => {
   })
   return status
 }
-export const startServer = async (port: number, bindLan: boolean) => {
+export const startServer = async(port: number, bindLan: boolean) => {
   if (status.status) await stopServer()
   await handleStartServer(port, bindLan ? '0.0.0.0' : '127.0.0.1').then(() => {
     status.status = true
