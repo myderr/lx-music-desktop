@@ -1,6 +1,6 @@
 // const path = require('path')
 import { app } from 'electron'
-import { mainHandle, mainOn } from '@common/mainIpc'
+import { mainHandle, mainOn, mainOnce } from '@common/mainIpc'
 import { WIN_MAIN_RENDERER_EVENT_NAME } from '@common/ipcNames'
 // import { name as defaultName } from '../../../../../package.json'
 import {
@@ -25,6 +25,7 @@ import {
 import { quitApp } from '@main/app'
 import { getAllThemes, removeTheme, saveTheme, setPowerSaveBlocker } from '@main/utils'
 import { openDirInExplorer } from '@common/utils/electron'
+import { ListDetailInfo } from '@/renderer/store/songList/state'
 
 export default () => {
   // 设置应用名称
@@ -65,13 +66,13 @@ export default () => {
     closeWindow()
   })
   // 全屏
-  mainHandle<boolean, boolean>(WIN_MAIN_RENDERER_EVENT_NAME.fullscreen, async({ params: isFullscreen }) => {
+  mainHandle<boolean, boolean>(WIN_MAIN_RENDERER_EVENT_NAME.fullscreen, async ({ params: isFullscreen }) => {
     global.lx.event_app.main_window_fullscreen(isFullscreen)
     return setFullScreen(isFullscreen)
   })
 
   // 选择目录
-  mainHandle<Electron.OpenDialogOptions, Electron.OpenDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_select_dialog, async({ params: options }) => {
+  mainHandle<Electron.OpenDialogOptions, Electron.OpenDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_select_dialog, async ({ params: options }) => {
     return showSelectDialog(options)
   })
   // 显示弹窗信息
@@ -79,20 +80,20 @@ export default () => {
     showDialog(params)
   })
   // 显示保存弹窗
-  mainHandle<Electron.SaveDialogOptions, Electron.SaveDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_save_dialog, async({ params }) => {
+  mainHandle<Electron.SaveDialogOptions, Electron.SaveDialogReturnValue>(WIN_MAIN_RENDERER_EVENT_NAME.show_save_dialog, async ({ params }) => {
     return showSaveDialog(params)
   })
   // 在资源管理器中定位文件
-  mainOn<string>(WIN_MAIN_RENDERER_EVENT_NAME.open_dir_in_explorer, async({ params }) => {
+  mainOn<string>(WIN_MAIN_RENDERER_EVENT_NAME.open_dir_in_explorer, async ({ params }) => {
     return openDirInExplorer(params)
   })
 
 
-  mainHandle(WIN_MAIN_RENDERER_EVENT_NAME.clear_cache, async() => {
+  mainHandle(WIN_MAIN_RENDERER_EVENT_NAME.clear_cache, async () => {
     await clearCache()
   })
 
-  mainHandle<number>(WIN_MAIN_RENDERER_EVENT_NAME.get_cache_size, async() => {
+  mainHandle<number>(WIN_MAIN_RENDERER_EVENT_NAME.get_cache_size, async () => {
     return getCacheSize()
   })
 
@@ -123,13 +124,13 @@ export default () => {
     global.lx.event_app.main_window_inited()
   })
 
-  mainHandle<{ themes: LX.Theme[], userThemes: LX.Theme[] }>(WIN_MAIN_RENDERER_EVENT_NAME.get_themes, async() => {
+  mainHandle<{ themes: LX.Theme[], userThemes: LX.Theme[] }>(WIN_MAIN_RENDERER_EVENT_NAME.get_themes, async () => {
     return getAllThemes()
   })
-  mainHandle<LX.Theme>(WIN_MAIN_RENDERER_EVENT_NAME.save_theme, async({ params: theme }) => {
+  mainHandle<LX.Theme>(WIN_MAIN_RENDERER_EVENT_NAME.save_theme, async ({ params: theme }) => {
     saveTheme(theme)
   })
-  mainHandle<string>(WIN_MAIN_RENDERER_EVENT_NAME.remove_theme, async({ params: id }) => {
+  mainHandle<string>(WIN_MAIN_RENDERER_EVENT_NAME.remove_theme, async ({ params: id }) => {
     removeTheme(id)
   })
 }
@@ -143,4 +144,31 @@ export const sendTaskbarButtonClick = (action: LX.Player.StatusButtonActions) =>
 }
 export const sendConfigChange = (setting: Partial<LX.AppSetting>) => {
   sendEvent(WIN_MAIN_RENDERER_EVENT_NAME.on_config_change, setting)
+}
+
+interface ListDetailPara { id: string, source: LX.OnlineSource, page: number, isRefresh: boolean }
+
+export const getListDetail = (input: ListDetailPara): Promise<ListDetailInfo> => {
+  return new Promise((resolve, reject) => {
+    mainOnce<ListDetailInfo>(WIN_MAIN_RENDERER_EVENT_NAME.send_list_detail, ({ params: data }) => {
+      resolve(data)
+    })
+    sendEvent<ListDetailPara>(WIN_MAIN_RENDERER_EVENT_NAME.get_list_detail, input)
+  });
+}
+
+interface MusicUrlPara {
+  musicInfo: LX.Music.MusicInfoOnline
+  quality?: LX.Quality
+  isRefresh: boolean
+  allowToggleSource?: boolean
+}
+export const getOnlineMusicUrl = (input: MusicUrlPara) => {
+  sendEvent<MusicUrlPara>(WIN_MAIN_RENDERER_EVENT_NAME.get_online_music_url, input)
+  // return new Promise((resolve, reject) => {
+  //   mainOnce<string>(WIN_MAIN_RENDERER_EVENT_NAME.send_online_music_url, ({ params: data }) => {
+  //     resolve(data)
+  //   })
+  //   sendEvent<MusicUrlPara>(WIN_MAIN_RENDERER_EVENT_NAME.get_online_music_url, input)
+  // });
 }

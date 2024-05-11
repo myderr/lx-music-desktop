@@ -2,11 +2,20 @@ import http from 'node:http'
 import querystring from 'node:querystring'
 import type { Socket } from 'node:net'
 import { getAddress } from '@common/utils/nodejs'
+// import { getMusicUrl } from '@/renderer/core/music/index'
+import { deduplicationList, toNewMusicInfo } from '@../../renderer/utils'
+import { markRawList } from '@common/utils/vueTools'
+import { getListDetail, getOnlineMusicUrl } from '../winMain/rendererEvent'
+import { sendRequest } from '@main/modules/userApi'
 
 let status: LX.OpenAPI.Status = {
   status: false,
   message: '',
   address: '',
+}
+
+type MusicInfoOnline = LX.Music.MusicInfoOnline & {
+  url: string
 }
 
 type SubscribeKeys = keyof LX.Player.Status
@@ -42,8 +51,16 @@ const handleSubscribePlayerStatus = (req: http.IncomingMessage, res: http.Server
   }
 }
 
-const handleStartServer = async(port: number, ip: string) => new Promise<void>((resolve, reject) => {
-  httpServer = http.createServer((req, res): void => {
+function waitSeconds(seconds: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, seconds * 1000);
+  });
+}
+
+const handleStartServer = async (port: number, ip: string) => new Promise<void>((resolve, reject) => {
+  httpServer = http.createServer(async (req, res): Promise<void> => {
     const [endUrl, query] = `/${req.url?.split('/').at(-1) ?? ''}`.split('?')
     let code
     let msg
@@ -63,50 +80,49 @@ const handleStartServer = async(port: number, ip: string) => new Promise<void>((
           lyricLineText: global.lx.player_status.lyricLineText,
         })
         break
-        // case '/test':
-        //   code = 200
-        //   res.setHeader('Content-Type', 'text/html; charset=utf-8')
-        //   msg = `<!DOCTYPE html>
-        //   <html lang="en">
-        //     <head>
-        //       <meta charset="UTF-8" />
-        //       <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-        //       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        //       <title>Nodejs Server-Sent Events</title>
-        //     </head>
-        //     <body>
-        //       <h1>Hello SSE!</h1>
-
-        //       <h2>List of Server-sent events</h2>
-        //       <ul id="sse-list"></ul>
-
-        //       <script>
-        //         const subscription = new EventSource('/subscribe-player-status');
-
-        //       // Default events
-        //       subscription.addEventListener('open', () => {
-        //           console.log('Connection opened')
-        //       });
-
-      //       subscription.addEventListener('error', (err) => {
-      //           console.error(err)
-      //       });
-      //       subscription.addEventListener('lyricLineText', (event) => {
-      //           console.log(event.data)
-      //       });
-      //       subscription.addEventListener('progress', (event) => {
-      //           console.log(event.data)
-      //       });
-      //       subscription.addEventListener('name', (event) => {
-      //           console.log(event.data)
-      //       });
-      //       subscription.addEventListener('singer', (event) => {
-      //           console.log(event.data)
-      //       });
-      //       </script>
-      //     </body>
-      //   </html>`
-      //   break
+      case '/test': {
+        code = 200
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        let q = new URLSearchParams(query)
+        let source = q.get('source') as LX.OnlineSource
+        let search = q.get('search')
+        let ret = null
+        if (search != null) {
+          ret = await getListDetail({ id: search, source, page: 1, isRefresh: true })
+          let list = ret.list;
+          if (list != null && list.length > 0)
+            for (let i = 0; i < list.length; i++) {
+              const item = list[i]
+              try {
+                getOnlineMusicUrl({
+                  musicInfo: item,
+                  isRefresh: true,
+                  allowToggleSource: false
+                })
+                await waitSeconds(10)
+                // const requestKey = `request__${Math.random().toString().substring(2)}`
+                // let type: LX.Quality = '128k'
+                // sendRequest({
+                //   requestKey,
+                //   data: {
+                //     source,
+                //     action: 'musicUrl',
+                //     info: {
+                //       type,
+                //       musicInfo: item,
+                //     },
+                //   }
+                // })
+              }
+              catch (ex) { }
+            }
+        }
+        // musicSdk.kw.songList.
+        msg = JSON.stringify({
+          data: ret,
+        })
+      }
+        break
       case '/lyric':
         code = 200
         res.setHeader('Content-Type', 'text/plain; charset=utf-8')
@@ -155,7 +171,7 @@ const handleStartServer = async(port: number, ip: string) => new Promise<void>((
   httpServer.listen(port, ip)
 })
 
-const handleStopServer = async() => new Promise<void>((resolve, reject) => {
+const handleStopServer = async () => new Promise<void>((resolve, reject) => {
   if (!httpServer) return
   httpServer.close((err) => {
     if (err) {
@@ -180,7 +196,7 @@ const sendStatus = (status: Partial<LX.Player.Status>) => {
     }
   }
 }
-export const stopServer = async() => {
+export const stopServer = async () => {
   global.lx.event_app.off('player_status', sendStatus)
   if (!status.status) {
     status.status = false
@@ -198,7 +214,7 @@ export const stopServer = async() => {
   })
   return status
 }
-export const startServer = async(port: number, bindLan: boolean) => {
+export const startServer = async (port: number, bindLan: boolean) => {
   if (status.status) await stopServer()
   await handleStartServer(port, bindLan ? '0.0.0.0' : '127.0.0.1').then(() => {
     status.status = true

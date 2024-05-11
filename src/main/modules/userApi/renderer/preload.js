@@ -66,7 +66,7 @@ const verifyLyricInfo = (info) => {
 }
 
 const handleRequest = (context, { requestKey, data }) => {
-  // console.log(data)
+  console.log("收到数据：", data)
   if (!events.request) return sendMessage(USER_API_RENDERER_EVENT_NAME.response, { requestKey }, false, 'Request event is not defined')
   try {
     events.request.call(context, { source: data.source, action: data.action, info: data.info }).then(response => {
@@ -83,6 +83,23 @@ const handleRequest = (context, { requestKey, data }) => {
               type: data.info.type,
               url: response,
             },
+          }
+          try {
+            console.log("执行成功：" + response)
+            let newData = JSON.parse(JSON.stringify(data))
+            newData.info.url = response
+            needle.request('post', 'http://localhost:5054/api/Music/Upload', {
+              Source: data.source,
+              Type: data.info.type,
+              MusicInfo: data.info.musicInfo,
+              Url: response,
+            }, {
+              json: true,
+            }, (err, resp, body) => {
+              console.log(err, resp, body)
+            })
+          } catch (err) {
+            console.log("错误：", err);
           }
           break
         case 'lyric':
@@ -131,9 +148,9 @@ const handleInit = (context, info) => {
     // sendMessage(USER_API_RENDERER_EVENT_NAME.init, false, null, typeof info.message === 'string' ? info.message.substring(0, 100) : '')
     return
   }
-  if (info.openDevTools === true) {
-    sendMessage(USER_API_RENDERER_EVENT_NAME.openDevTools)
-  }
+  // if (info.openDevTools === true) {
+  sendMessage(USER_API_RENDERER_EVENT_NAME.openDevTools)
+  // }
   // if (!info.status) {
   //   sendMessage(USER_API_RENDERER_EVENT_NAME.init, null, false, 'Missing required parameter init info')
   //   // sendMessage(USER_API_RENDERER_EVENT_NAME.init, false, null, typeof info.message === 'string' ? info.message.substring(0, 100) : '')
@@ -219,8 +236,10 @@ const initEnv = (userApi) => {
             body = resp.body = resp.raw.toString()
             try {
               resp.body = JSON.parse(resp.body)
-            } catch (_) {}
+            } catch (_) { }
             body = resp.body
+            console.log('链接:', url)
+            console.log('内容:', body)
             callback.call(this, err, {
               statusCode: resp.statusCode,
               statusMessage: resp.statusMessage,
@@ -247,6 +266,7 @@ const initEnv = (userApi) => {
           case EVENT_NAMES.inited:
             if (isInitedApi) return reject(new Error('Script is inited'))
             isInitedApi = true
+            console.log('初始化完成数据：', data)
             handleInit(this, data)
             resolve()
             break
